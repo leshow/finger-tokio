@@ -10,7 +10,7 @@ use bytes::BytesMut;
 use tokio_io::codec::{Encoder, Decoder};
 
 
-pub struct LineCodec;
+pub struct FingerCodec;
 
 const DELIM: u8 = b'\n';
 
@@ -20,7 +20,7 @@ impl Decoder for LineCodec {
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if let Some(i) = buf.iter().position(|&b| b == DELIM) {
             let line = buf.split_to(i);
-            // Ok(Some(line.into_iter().collect::<Vec<u8>>()))
+
             buf.split_to(1); // break off '\n'
             match str::from_utf8(&line) {
                 Ok(l) => Ok(Some(String::from(l))),
@@ -47,9 +47,9 @@ use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::pipeline::ServerProto;
 
-pub struct LineProto;
+pub struct FingerProto;
 
-impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for LineProto {
+impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for FingerProto {
     type Request = String; // matches Item type in Encoder
     type Response = String; // matches Item type in Decoder
     type Transport = Framed<T, LineCodec>;
@@ -94,7 +94,7 @@ use tokio_proto::TcpServer;
 
 fn main() {
     let addr = "0.0.0.0:12345".parse().unwrap();
-    let server = TcpServer::new(LineProto, addr);
+    let server = TcpServer::new(FingerProto, addr);
     server.serve(|| Ok(EchoRev));
 }
 
