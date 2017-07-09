@@ -7,6 +7,7 @@ use std::str;
 use tokio_io::codec::{Encoder, Decoder};
 
 const DELIM: u8 = b'\n';
+const SEPARATOR: char = '@';
 const PORT_NUM: u16 = 79;
 
 use error::{FingerResult, FingerError};
@@ -27,15 +28,15 @@ impl FingerFrame {
             hostname: None,
         }
     }
-    fn set_hostname<S: Into<String>>(self, hostname: S) -> FingerFrame {
+    fn set_hostname<S: Into<Option<String>>>(self, hostname: S) -> FingerFrame {
         FingerFrame {
-            hostname: Some(hostname.into()),
+            hostname: hostname.into(),
             ..self
         }
     }
-    fn set_username<S: Into<String>>(self, username: S) -> FingerFrame {
+    fn set_username<S: Into<Option<String>>>(self, username: S) -> FingerFrame {
         FingerFrame {
-            username: Some(username.into()),
+            username: username.into(),
             ..self
         }
     }
@@ -52,7 +53,7 @@ impl Finger for FingerFrame {
         self.hostname.as_ref().map(|x| &**x)
     }
     fn username(&self) -> Option<&str> {
-        self.username.as_ref().map(Deref::deref)
+        self.username.as_ref().map(|x| &**x)
     }
     fn write_to(&self) -> FingerResult<()> {
         Ok(())
@@ -85,8 +86,16 @@ impl<F> Decoder for FingerCodec<F> {
             buf.split_to(1); // break off '\n'
             let input = str::from_utf8(&line)?;
 
-
-            let frame = FingerFrame::new();
+            // let users = input.split(' ').collect::<Vec<&str>>();
+            let pair = input
+                .split(SEPARATOR)
+                .map(|x| x.to_owned())
+                .collect::<Vec<String>>();
+            let mut pair = pair.into_iter();
+            // right now only handles a single user@host
+            let frame = FingerFrame::new()
+                .set_username(pair.next())
+                .set_hostname(pair.next());
 
             Ok(Some(frame))
         } else {
