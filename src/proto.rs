@@ -1,5 +1,6 @@
 use bytes::BytesMut;
 use std::borrow::Borrow;
+use std::fmt;
 use std::io;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -42,10 +43,24 @@ impl FingerFrame {
     }
 }
 
+
+impl fmt::Display for FingerFrame {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref u) = self.username {
+            fmt.write_str(u);
+        }
+        if let Some(ref h) = self.hostname {
+            fmt.write_str("@");
+            fmt.write_str(h);
+        }
+        Ok(())
+    }
+}
+
 trait Finger {
     fn hostname(&self) -> Option<&str>;
     fn username(&self) -> Option<&str>;
-    fn write_to(&self) -> FingerResult<()>;
+    fn write_to(&self) -> FingerResult<String>;
 }
 
 impl Finger for FingerFrame {
@@ -55,8 +70,8 @@ impl Finger for FingerFrame {
     fn username(&self) -> Option<&str> {
         self.username.as_ref().map(|x| &**x)
     }
-    fn write_to(&self) -> FingerResult<()> {
-        Ok(())
+    fn write_to(&self) -> FingerResult<String> {
+        Ok(format!("{}", self))
     }
 }
 
@@ -86,13 +101,12 @@ impl<F> Decoder for FingerCodec<F> {
             buf.split_to(1); // break off '\n'
             let input = str::from_utf8(&line)?;
 
-            // let users = input.split(' ').collect::<Vec<&str>>();
+            // right now only handles a single user@host
             let pair = input
                 .split(SEPARATOR)
                 .map(|x| x.to_owned())
                 .collect::<Vec<String>>();
             let mut pair = pair.into_iter();
-            // right now only handles a single user@host
             let frame = FingerFrame::new()
                 .set_username(pair.next())
                 .set_hostname(pair.next());
@@ -109,11 +123,11 @@ where
     F: Borrow<Finger>,
 {
     type Item = F;
-    type Error = io::Error;
+    type Error = FingerError;
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
-        unimplemented!();
-        // buf.extend_from_slice(input.as_bytes());
-        // buf.extend(b"\n");
-        // Ok(())
+        let frame = input.borrow();
+        buf.extend_from_slice(frame.write_to()?.as_ref());
+        buf.extend(b"\n");
+        Ok(())
     }
 }
