@@ -4,7 +4,8 @@ extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
 
-
+mod proto;
+mod error;
 // use tokio_io::{AsyncRead, AsyncWrite};
 // use tokio_io::codec::Framed;
 // use tokio_proto::pipeline::ServerProto;
@@ -59,4 +60,3 @@ fn main() {
     // let server = TcpServer::new(FingerProto, addr);
     // server.serve(|| Ok(EchoRev));
 }
-
