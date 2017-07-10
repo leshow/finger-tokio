@@ -41,15 +41,14 @@ impl FingerFrame {
     }
 }
 
-
 impl fmt::Display for FingerFrame {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref u) = self.username {
             fmt.write_str(u)?;
-        }
-        if let Some(ref h) = self.hostname {
-            fmt.write_str("@")?;
-            fmt.write_str(h)?;
+            if let Some(ref h) = self.hostname {
+                fmt.write_str("@")?;
+                fmt.write_str(h)?;
+            }
         }
         Ok(())
     }
@@ -95,10 +94,8 @@ impl<F> Decoder for FingerCodec<F> {
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if let Some(i) = buf.iter().position(|&b| b == DELIM) {
             let line = buf.split_to(i);
-
             buf.split_to(1); // break off '\n'
             let input = str::from_utf8(&line)?;
-
             // right now only handles a single user@host
             let pair = input
                 .split(SEPARATOR)
@@ -108,7 +105,6 @@ impl<F> Decoder for FingerCodec<F> {
             let frame = FingerFrame::new()
                 .set_username(pair.next())
                 .set_hostname(pair.next());
-
             Ok(Some(frame))
         } else {
             Ok(None)
