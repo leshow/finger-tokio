@@ -1,9 +1,7 @@
 use bytes::BytesMut;
 use std::borrow::Borrow;
 use std::fmt;
-use std::io;
 use std::marker::PhantomData;
-use std::ops::Deref;
 use std::str;
 use tokio_io::codec::{Encoder, Decoder};
 
@@ -47,11 +45,11 @@ impl FingerFrame {
 impl fmt::Display for FingerFrame {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref u) = self.username {
-            fmt.write_str(u);
+            fmt.write_str(u)?;
         }
         if let Some(ref h) = self.hostname {
-            fmt.write_str("@");
-            fmt.write_str(h);
+            fmt.write_str("@")?;
+            fmt.write_str(h)?;
         }
         Ok(())
     }
