@@ -3,13 +3,13 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::marker::PhantomData;
 use std::str;
-use tokio_io::codec::{Encoder, Decoder};
+use tokio_io::codec::{Decoder, Encoder};
 
 const DELIM: u8 = b'\n';
 const SEPARATOR: char = '@';
 const PORT_NUM: u16 = 79;
 
-use error::{FingerResult, FingerError};
+use error::{FingerError, FingerResult};
 
 pub struct FingerCodec<F> {
     frame_type: PhantomData<F>,
