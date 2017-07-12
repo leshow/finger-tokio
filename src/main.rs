@@ -3,29 +3,37 @@ extern crate futures;
 extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
+extern crate tokio_core;
 
 mod proto;
 mod error;
 
-use proto::{FingerCodec, FingerFrame};
-use error::{FingerResult, FingerError};
+use error::{FingerError, FingerResult};
+use proto::{Finger, FingerCodec, FingerFrame};
 use std::borrow::Borrow;
 use std::io;
+// use tokio_core::io::Framed;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::pipeline::ServerProto;
 
-pub struct FingerProto;
+pub struct FingerProto<F> {
+    frame: std::marker::PhantomData<F>,
+}
 
-impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for FingerProto {
-
-    type Request = FingerFrame; // matches Item type in Encoder
+impl<T, F> ServerProto<T> for FingerProto<F>
+where
+    T: AsyncRead + AsyncWrite,
+    F: Borrow<Finger>,
+{
+    type Request = FingerFrame;
     type Response = FingerFrame; // matches Item type in Decoder
     type Transport = Framed<T, FingerCodec<FingerFrame>>;
-    type BindTransport = Result<Self::Transport, io::Error>;
-    
+    type BindTransport = Result<Self::Transport, FingerError>;
+
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(FingerCoded::default())) // framed<T: Encoder + Decoder>(self, codec: T) -> Framed<Self, T>;
+        unimplemented!();
+        //         Ok(io.framed(FingerCodec::default()));
     }
 }
 
@@ -47,19 +55,6 @@ impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for FingerProto {
 //     }
 // }
 
-// pub struct EchoRev;
-
-// impl Service for EchoRev {
-//     type Request = String;
-//     type Response = String;
-
-//     type Error = io::Error;
-//     type Future = BoxFuture<Self::Response, Self::Error>;
-//     fn call(&self, req: Self::Request) -> Self::Future {
-//         let rev = req.chars().rev().collect::<String>();
-//         future::ok(rev).boxed()
-//     }
-// }
 // use tokio_proto::TcpServer;
 
 fn main() {

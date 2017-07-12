@@ -54,7 +54,7 @@ impl fmt::Display for FingerFrame {
     }
 }
 
-trait Finger {
+pub trait Finger {
     fn hostname(&self) -> Option<&str>;
     fn username(&self) -> Option<&str>;
     fn write_to(&self) -> FingerResult<String>;
@@ -119,8 +119,7 @@ where
     type Item = F;
     type Error = FingerError;
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
-        let frame = input.borrow();
-        buf.extend_from_slice(frame.write_to()?.as_ref());
+        buf.extend_from_slice(input.borrow().write_to()?.as_ref());
         buf.extend(b"\n");
         Ok(())
     }
