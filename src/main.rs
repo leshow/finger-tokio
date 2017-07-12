@@ -17,23 +17,22 @@ use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::pipeline::ServerProto;
 
-pub struct FingerProto<F> {
-    frame: std::marker::PhantomData<F>,
-}
+pub struct FingerProto;
+// <F> {
+//     frame: std::marker::PhantomData<F>,
+// }
 
-impl<T, F> ServerProto<T> for FingerProto<F>
+impl<T> ServerProto<T> for FingerProto
 where
-    T: AsyncRead + AsyncWrite,
-    F: Borrow<Finger>,
+    T: AsyncRead + AsyncWrite + 'static,
 {
     type Request = FingerFrame;
     type Response = FingerFrame; // matches Item type in Decoder
-    type Transport = Framed<T, FingerCodec<FingerFrame>>;
+    type Transport = Framed<T, FingerCodec>;
     type BindTransport = Result<Self::Transport, FingerError>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        unimplemented!();
-        //         Ok(io.framed(FingerCodec::default()));
+        Ok(io.framed(FingerCodec));
     }
 }
 

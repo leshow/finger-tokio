@@ -11,9 +11,10 @@ const PORT_NUM: u16 = 79;
 
 use error::{FingerError, FingerResult};
 
-pub struct FingerCodec<F> {
-    frame_type: PhantomData<F>,
-}
+pub struct FingerCodec;
+// <F> {
+//     frame_type: PhantomData<F>,
+// }
 
 pub struct FingerFrame {
     pub username: Option<String>,
@@ -27,7 +28,7 @@ impl FingerFrame {
             hostname: None,
         }
     }
-    fn set_hostname<S: Into<Option<String>>>(self, hostname: S) -> FingerFrame {
+    fn set_hostname<S: Into<Option<String>>, F: Finger>(self, hostname: S) -> FingerFrame {
         FingerFrame {
             hostname: hostname.into(),
             ..self
@@ -56,9 +57,12 @@ impl fmt::Display for FingerFrame {
 
 pub trait Finger {
     fn hostname(&self) -> Option<&str>;
+    // fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S);
+    // fn set_username<S: Into<Option<String>>>(&mut self, username: S);
     fn username(&self) -> Option<&str>;
     fn write_to(&self) -> FingerResult<String>;
 }
+
 
 impl Finger for FingerFrame {
     fn hostname(&self) -> Option<&str> {
@@ -70,25 +74,34 @@ impl Finger for FingerFrame {
     fn write_to(&self) -> FingerResult<String> {
         Ok(format!("{}", self))
     }
+    // fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S) {
+    //     self.hostname = hostname.into();
+    // }
+    // fn set_username<S: Into<Option<String>>>(&mut self, username: S) {
+    //     self.username = username.into();
+    // }
 }
 
-impl<F> FingerCodec<F> {
-    fn new() -> FingerCodec<F> {
-        FingerCodec {
-            frame_type: PhantomData,
-        }
-    }
-}
+// impl<F> FingerCodec<F>
+// where
+//     F: Finger,
+// {
+//     fn new() -> FingerCodec<F> {
+//         FingerCodec {
+//             frame_type: PhantomData,
+//         }
+//     }
+// }
 
-impl FingerCodec<FingerFrame> {
-    fn default() -> Self {
-        FingerCodec {
-            frame_type: PhantomData,
-        }
-    }
-}
+// impl FingerCodec<FingerFrame> {
+//     fn default() -> Self {
+//         FingerCodec {
+//             frame_type: PhantomData,
+//         }
+//     }
+// }
 
-impl<F> Decoder for FingerCodec<F> {
+impl Decoder for FingerCodec {
     type Item = FingerFrame;
     type Error = FingerError;
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -105,6 +118,7 @@ impl<F> Decoder for FingerCodec<F> {
             let frame = FingerFrame::new()
                 .set_username(pair.next())
                 .set_hostname(pair.next());
+
             Ok(Some(frame))
         } else {
             Ok(None)
@@ -112,14 +126,11 @@ impl<F> Decoder for FingerCodec<F> {
     }
 }
 
-impl<F> Encoder for FingerCodec<F>
-where
-    F: Borrow<Finger>,
-{
-    type Item = F;
+impl Encoder for FingerCodec {
+    type Item = FingerFrame;
     type Error = FingerError;
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
-        buf.extend_from_slice(input.borrow().write_to()?.as_ref());
+        buf.extend_from_slice(input.write_to()?.as_ref());
         buf.extend(b"\n");
         Ok(())
     }
