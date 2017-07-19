@@ -8,19 +8,17 @@ extern crate tokio_core;
 mod proto;
 mod error;
 
-use error::{FingerError, FingerResult};
-use proto::{Finger, FingerCodec, FingerFrame};
-use std::borrow::Borrow;
+use futures::{BoxFuture, Future, future};
+pub use proto::{Finger, FingerCodec, FingerFrame, PORT_NUM};
+
 use std::io;
-// use tokio_core::io::Framed;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
+use tokio_proto::TcpServer;
 use tokio_proto::pipeline::ServerProto;
+use tokio_service::Service;
 
 pub struct FingerProto;
-// <F> {
-//     frame: std::marker::PhantomData<F>,
-// }
 
 impl<T> ServerProto<T> for FingerProto
 where
@@ -29,35 +27,31 @@ where
     type Request = FingerFrame;
     type Response = FingerFrame; // matches Item type in Decoder
     type Transport = Framed<T, FingerCodec>;
-    type BindTransport = Result<Self::Transport, FingerError>;
+    type BindTransport = Result<Self::Transport, io::Error>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(FingerCodec));
+        Ok(io.framed(FingerCodec))
     }
 }
 
-// use tokio_service::Service;
 
-// pub struct Echo;
+pub struct FingerService;
 
-// use futures::{future, Future, BoxFuture};
+impl Service for FingerService {
+    type Request = FingerFrame;
+    type Response = FingerFrame;
+    type Error = io::Error;
+    type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
-// impl Service for Echo {
-//     // these match protocol types
-//     type Request = String;
-//     type Response = String;
+    fn call(&self, req: Self::Request) -> Self::Future {
+        //        future::ok(req).boxed()
+        unimplemented!();
+    }
+}
 
-//     type Error = io::Error;
-//     type Future = BoxFuture<Self::Response, Self::Error>; // response future
-//     fn call(&self, req: Self::Request) -> Self::Future {
-//         future::ok(req).boxed()
-//     }
-// }
-
-// use tokio_proto::TcpServer;
 
 fn main() {
-    // let addr = "0.0.0.0:12345".parse().unwrap();
-    // let server = TcpServer::new(FingerProto, addr);
-    // server.serve(|| Ok(EchoRev));
+    let addr = format!("0.0.0.0:{}", PORT_NUM).parse().unwrap();
+    let server = TcpServer::new(FingerProto, addr);
+    server.serve(|| Ok(FingerService));
 }

@@ -1,15 +1,15 @@
 use bytes::BytesMut;
-use std::borrow::Borrow;
 use std::fmt;
+use std::io;
 use std::marker::PhantomData;
 use std::str;
 use tokio_io::codec::{Decoder, Encoder};
 
-const DELIM: u8 = b'\n';
-const SEPARATOR: char = '@';
-const PORT_NUM: u16 = 79;
+pub const DELIM: u8 = b'\n';
+pub const SEPARATOR: char = '@';
+pub const PORT_NUM: u16 = 79;
 
-use error::{FingerError, FingerResult};
+use error::FingerResult;
 
 pub struct FingerCodec;
 // <F> {
@@ -28,18 +28,18 @@ impl FingerFrame {
             hostname: None,
         }
     }
-    fn set_hostname<S: Into<Option<String>>, F: Finger>(self, hostname: S) -> FingerFrame {
-        FingerFrame {
-            hostname: hostname.into(),
-            ..self
-        }
-    }
-    fn set_username<S: Into<Option<String>>>(self, username: S) -> FingerFrame {
-        FingerFrame {
-            username: username.into(),
-            ..self
-        }
-    }
+    // fn set_hostname<S: Into<Option<String>>>(self, hostname: S) -> FingerFrame {
+    //     FingerFrame {
+    //         hostname: hostname.into(),
+    //         ..self
+    //     }
+    // }
+    // fn set_username<S: Into<Option<String>>>(self, username: S) -> FingerFrame {
+    //     FingerFrame {
+    //         username: username.into(),
+    //         ..self
+    //     }
+    // }
 }
 
 impl fmt::Display for FingerFrame {
@@ -57,12 +57,11 @@ impl fmt::Display for FingerFrame {
 
 pub trait Finger {
     fn hostname(&self) -> Option<&str>;
-    // fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S);
-    // fn set_username<S: Into<Option<String>>>(&mut self, username: S);
+    fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S);
+    fn set_username<S: Into<Option<String>>>(&mut self, username: S);
     fn username(&self) -> Option<&str>;
     fn write_to(&self) -> FingerResult<String>;
 }
-
 
 impl Finger for FingerFrame {
     fn hostname(&self) -> Option<&str> {
@@ -74,19 +73,19 @@ impl Finger for FingerFrame {
     fn write_to(&self) -> FingerResult<String> {
         Ok(format!("{}", self))
     }
-    // fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S) {
-    //     self.hostname = hostname.into();
-    // }
-    // fn set_username<S: Into<Option<String>>>(&mut self, username: S) {
-    //     self.username = username.into();
-    // }
+    fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S) {
+        self.hostname = hostname.into();
+    }
+    fn set_username<S: Into<Option<String>>>(&mut self, username: S) {
+        self.username = username.into();
+    }
 }
 
 // impl<F> FingerCodec<F>
 // where
 //     F: Finger,
 // {
-//     fn new() -> FingerCodec<F> {
+//     pub fn new() -> FingerCodec<F> {
 //         FingerCodec {
 //             frame_type: PhantomData,
 //         }
@@ -103,21 +102,23 @@ impl Finger for FingerFrame {
 
 impl Decoder for FingerCodec {
     type Item = FingerFrame;
-    type Error = FingerError;
+    type Error = io::Error;
+
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if let Some(i) = buf.iter().position(|&b| b == DELIM) {
             let line = buf.split_to(i);
             buf.split_to(1); // break off '\n'
-            let input = str::from_utf8(&line)?;
+            let input = str::from_utf8(&line)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             // right now only handles a single user@host
             let pair = input
                 .split(SEPARATOR)
                 .map(|x| x.to_owned())
                 .collect::<Vec<String>>();
             let mut pair = pair.into_iter();
-            let frame = FingerFrame::new()
-                .set_username(pair.next())
-                .set_hostname(pair.next());
+            let mut frame = FingerFrame::new();
+            frame.set_username(pair.next());
+            frame.set_hostname(pair.next());
 
             Ok(Some(frame))
         } else {
@@ -128,9 +129,15 @@ impl Decoder for FingerCodec {
 
 impl Encoder for FingerCodec {
     type Item = FingerFrame;
-    type Error = FingerError;
+    type Error = io::Error;
+
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
-        buf.extend_from_slice(input.write_to()?.as_ref());
+        buf.extend_from_slice(
+            input
+                .write_to()
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+                .as_ref(),
+        );
         buf.extend(b"\n");
         Ok(())
     }
