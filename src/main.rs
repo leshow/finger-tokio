@@ -44,14 +44,13 @@ impl Service for FingerService {
     type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        //        future::ok(req).boxed()
-        unimplemented!();
+        future::ok(req).boxed()
     }
 }
 
 
 fn main() {
-    let addr = format!("0.0.0.0:{}", PORT_NUM).parse().unwrap();
+    let addr = format!("0.0.0.0:12345").parse().unwrap();
     let server = TcpServer::new(FingerProto, addr);
     server.serve(|| Ok(FingerService));
 }
