@@ -48,15 +48,21 @@ impl Service for FingerService {
     type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        if let Some(host) = req.hostname() {
-            if host == "localhost" {
-                // local
-            } else {
-                // remote
-            }
-        } else {
-            // local
-        }
+        // match req.hostname() {
+        //     Some(host) => match req.username() {
+        //         Some(user) => {
+        //             let res = query_local(user);
+        //         },
+        //         None => {}
+        //     },
+        //     None => match req.username() {
+        //         Some(user) => {
+        //             let res = query_local(user);
+        //         },
+        //         None => {}
+        //     }
+        // }
+
         future::ok(req).boxed()
     }
 }
@@ -68,8 +74,8 @@ struct Entry {
 }
 
 fn query_local(username: &str) -> FingerResult<Entry> {
-    let mut f = File::open("/etc/passwd")?;
-    let mut reader = BufReader::new(f);
+    let f = File::open("/etc/passwd")?;
+    let reader = BufReader::new(f);
     let username = username.to_lowercase();
 
     let lines = reader.lines();
@@ -94,12 +100,10 @@ fn query_local(username: &str) -> FingerResult<Entry> {
 fn parse_line(line: String) -> FingerResult<Entry> {
     let mut user = line.split(':');
     let name = get_entry(&mut user, "/cat/passwd: Name not found")?;
-
     user.next();
     user.next();
     user.next();
     user.next();
-
     let home = get_entry(&mut user, "/cat/passwd: Home not found")?;
     let shell = get_entry(&mut user, "/cat/passwd: Shell not found")?;
 
@@ -108,10 +112,11 @@ fn parse_line(line: String) -> FingerResult<Entry> {
 
 // `mut user` works as well as `user: &mut I` here
 // because: impl<'a, T: Iterator> Iterator for &'a mut T
-fn get_entry<'a, I: Iterator<Item = &'a str>, S: Into<String>>(
-    mut user: I,
-    e: S,
-) -> FingerResult<String> {
+fn get_entry<'a, I, S>(mut user: I, e: S) -> FingerResult<String>
+where
+    I: Iterator<Item = &'a str>,
+    S: Into<String>,
+{
     Ok(user.next().ok_or(FingerError::parse(e))?.to_owned())
 }
 
