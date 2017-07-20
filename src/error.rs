@@ -14,8 +14,8 @@ pub enum FingerError {
 }
 
 impl FingerError {
-    pub fn new(msg: String) -> FingerError {
-        FingerError::ParseError(msg)
+    pub fn parse<S: Into<String>>(msg: S) -> FingerError {
+        FingerError::ParseError(msg.into())
     }
 }
 

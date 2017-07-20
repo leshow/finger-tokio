@@ -8,14 +8,14 @@ extern crate tokio_core;
 mod proto;
 mod error;
 
+use error::{FingerError, FingerResult};
 use futures::{BoxFuture, Future, future};
 pub use proto::{Finger, FingerCodec, FingerFrame, PORT_NUM};
-use error::{FingerError, FingerResult};
+use std::fs::File;
+use std::io::{self, BufReader};
 
 
 use std::io::prelude::*;
-use std::io::{BufReader, self};
-use std::fs::File;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::TcpServer;
@@ -62,49 +62,61 @@ impl Service for FingerService {
 }
 
 struct Entry {
-   pub name: String,
-   pub home: String,
-   pub shell: String, 
+    pub name:  String,
+    pub home:  String,
+    pub shell: String,
 }
 
 fn query_local(username: &str) -> FingerResult<Entry> {
-        let mut f = File::open("/etc/passwd")?;
-        let mut reader = BufReader::new(f);
-        let username = username.to_lowercase();
+    let mut f = File::open("/etc/passwd")?;
+    let mut reader = BufReader::new(f);
+    let username = username.to_lowercase();
 
-        let lines = reader.lines();
+    let lines = reader.lines();
 
-        // lines
-        // .filter_map(Result::ok)
-        // .map(parse_line)
-        // .filter_map(Result::ok)
-        // .map(|entry| entry.name.to_lowercase())
-        // .filter(|name| *name == username)
-        // .collect::<Vec<String>>();
+    // lines
+    //     .filter_map(Result::ok)
+    //     .map(parse_line)
+    //     .filter_map(Result::ok)
+    //     .map(|entry| entry.name.to_lowercase())
+    //     .filter(|name| *name == username)
+    //     .collect::<Vec<String>>();
 
-        for line in lines {
-            let entry = parse_line(line?)?;
-            if entry.name.to_lowercase() == username {
-                return Ok(entry);
-            }
+    for line in lines {
+        let entry = parse_line(line?)?;
+        if entry.name.to_lowercase() == username {
+            return Ok(entry);
         }
-        Err(FingerError::ParseError("No user found".into()))
+    }
+    Err(FingerError::parse("No user found"))
 }
 
 fn parse_line<'a>(line: String) -> FingerResult<Entry> {
     let mut user = line.split(':');
-    let name = user.next().unwrap().to_owned();
+    let name = user.next()
+        .ok_or(FingerError::parse("/cat/passwd: Name not found"))?
+        .to_owned();
+    //    let name = get_entry(&mut user, "/cat/passwd: Name not found")?;
+
     user.next();
     user.next();
-    user.next();    
     user.next();
-    let home = user.next().unwrap().to_owned();
-    let shell = user.next().unwrap().to_owned();
-    Ok(Entry {
-        name,
-        home,
-        shell
-    })
+    user.next();
+
+    let home = user.next()
+        .ok_or(FingerError::parse("/cat/passwd: Home not found"))?
+        .to_owned();
+    let shell = user.next()
+        .ok_or(FingerError::parse("/cat/passwd: Shell not found"))?
+        .to_owned();
+    Ok(Entry { name, home, shell })
+}
+
+fn get_entry<'a, I: Iterator<Item = &'a str>, S: Into<String>>(
+    user: &mut I,
+    e: S,
+) -> FingerResult<String> {
+    Ok(user.next().ok_or(FingerError::parse(e))?.to_owned())
 }
 
 
