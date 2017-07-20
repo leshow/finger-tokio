@@ -91,29 +91,25 @@ fn query_local(username: &str) -> FingerResult<Entry> {
     Err(FingerError::parse("No user found"))
 }
 
-fn parse_line<'a>(line: String) -> FingerResult<Entry> {
+fn parse_line(line: String) -> FingerResult<Entry> {
     let mut user = line.split(':');
-    let name = user.next()
-        .ok_or(FingerError::parse("/cat/passwd: Name not found"))?
-        .to_owned();
-    //    let name = get_entry(&mut user, "/cat/passwd: Name not found")?;
+    let name = get_entry(&mut user, "/cat/passwd: Name not found")?;
 
     user.next();
     user.next();
     user.next();
     user.next();
 
-    let home = user.next()
-        .ok_or(FingerError::parse("/cat/passwd: Home not found"))?
-        .to_owned();
-    let shell = user.next()
-        .ok_or(FingerError::parse("/cat/passwd: Shell not found"))?
-        .to_owned();
+    let home = get_entry(&mut user, "/cat/passwd: Home not found")?;
+    let shell = get_entry(&mut user, "/cat/passwd: Shell not found")?;
+
     Ok(Entry { name, home, shell })
 }
 
+// `mut user` works as well as `user: &mut I` here
+// because: impl<'a, T: Iterator> Iterator for &'a mut T
 fn get_entry<'a, I: Iterator<Item = &'a str>, S: Into<String>>(
-    user: &mut I,
+    mut user: I,
     e: S,
 ) -> FingerResult<String> {
     Ok(user.next().ok_or(FingerError::parse(e))?.to_owned())
