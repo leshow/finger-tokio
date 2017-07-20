@@ -9,8 +9,14 @@ pub type FingerResult<T> = Result<T, FingerError>;
 #[derive(Debug)]
 pub enum FingerError {
     IoError(io::Error),
-    ParseError(&'static str),
+    ParseError(String),
     Utf8Error(Utf8Error),
+}
+
+impl FingerError {
+    pub fn new(msg: String) -> FingerError {
+        FingerError::ParseError(msg)
+    }
 }
 
 impl fmt::Display for FingerError {
