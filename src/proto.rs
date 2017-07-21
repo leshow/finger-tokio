@@ -1,7 +1,6 @@
 use bytes::BytesMut;
 use std::fmt;
 use std::io;
-use std::marker::PhantomData;
 use std::str;
 use tokio_io::codec::{Decoder, Encoder};
 
@@ -12,9 +11,6 @@ pub const PORT_NUM: u16 = 79;
 use error::FingerResult;
 
 pub struct FingerCodec;
-// <F> {
-//     frame_type: PhantomData<F>,
-// }
 
 pub struct FingerFrame {
     pub username: Option<String>,
@@ -28,18 +24,6 @@ impl FingerFrame {
             hostname: None,
         }
     }
-    // fn set_hostname<S: Into<Option<String>>>(self, hostname: S) -> FingerFrame {
-    //     FingerFrame {
-    //         hostname: hostname.into(),
-    //         ..self
-    //     }
-    // }
-    // fn set_username<S: Into<Option<String>>>(self, username: S) -> FingerFrame {
-    //     FingerFrame {
-    //         username: username.into(),
-    //         ..self
-    //     }
-    // }
 }
 
 impl fmt::Display for FingerFrame {
@@ -80,25 +64,6 @@ impl Finger for FingerFrame {
         self.username = username.into();
     }
 }
-
-// impl<F> FingerCodec<F>
-// where
-//     F: Finger,
-// {
-//     pub fn new() -> FingerCodec<F> {
-//         FingerCodec {
-//             frame_type: PhantomData,
-//         }
-//     }
-// }
-
-// impl FingerCodec<FingerFrame> {
-//     fn default() -> Self {
-//         FingerCodec {
-//             frame_type: PhantomData,
-//         }
-//     }
-// }
 
 impl Decoder for FingerCodec {
     type Item = FingerFrame;

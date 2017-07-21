@@ -2,7 +2,7 @@
 
 ## Why? 
 
-The final task in a programming book had me implement a version of `fingerd` in the target language. I thought this might be a good way to familiarize myself with `tokio` & friends.
+The final task in a programming book had me implement a version of `fingerd` in the target language. I thought this might be a good way to familiarize myself with `tokio` & friends. 
 
 ## About
 

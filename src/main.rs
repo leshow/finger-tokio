@@ -1,5 +1,6 @@
 extern crate bytes;
 extern crate futures;
+extern crate futures_cpupool;
 extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
@@ -8,14 +9,14 @@ extern crate tokio_core;
 mod proto;
 mod error;
 
-use error::{FingerError, FingerResult};
+pub use error::{FingerError, FingerResult};
+
 use futures::{BoxFuture, Future, future};
+use futures_cpupool::CpuPool;
 pub use proto::{Finger, FingerCodec, FingerFrame, PORT_NUM};
+
 use std::fs::File;
-use std::io::{self, BufReader};
-
-
-use std::io::prelude::*;
+use std::io::{self, BufRead, BufReader};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::TcpServer;
@@ -39,7 +40,9 @@ where
 }
 
 
-pub struct FingerService;
+pub struct FingerService {
+    thread_pool: CpuPool,
+}
 
 impl Service for FingerService {
     type Request = FingerFrame;
@@ -48,22 +51,28 @@ impl Service for FingerService {
     type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        // match req.hostname() {
-        //     Some(host) => match req.username() {
-        //         Some(user) => {
-        //             let res = query_local(user);
-        //         },
-        //         None => {}
-        //     },
-        //     None => match req.username() {
-        //         Some(user) => {
-        //             let res = query_local(user);
-        //         },
-        //         None => {}
-        //     }
-        // }
+        let query = self.thread_pool.spawn_fn(move || {
+            let frame = match req.hostname() {
+                Some(host) => {
+                    match req.username() {
+                        Some(user) => {
+                            // host && user
+                            let res = query_local(user)
+                                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-        future::ok(req).boxed()
+                        }
+                        None => {
+                            // err
+                        }
+                    }
+                }
+                None => {}
+            };
+
+            Ok(req)
+        });
+        query.boxed()
+        //        future::ok(req).boxed()
     }
 }
 
@@ -71,6 +80,14 @@ struct Entry {
     pub name:  String,
     pub home:  String,
     pub shell: String,
+    pub gecos: Option<Gecos>,
+}
+
+struct Gecos {
+    pub full_name: String,
+    pub location:  String,
+    pub phone:     String,
+    pub other:     Vec<String>,
 }
 
 fn query_local(username: &str) -> FingerResult<Entry> {
@@ -79,15 +96,6 @@ fn query_local(username: &str) -> FingerResult<Entry> {
     let username = username.to_lowercase();
 
     let lines = reader.lines();
-
-    // lines
-    //     .filter_map(Result::ok)
-    //     .map(parse_line)
-    //     .filter_map(Result::ok)
-    //     .map(|entry| entry.name.to_lowercase())
-    //     .filter(|name| *name == username)
-    //     .collect::<Vec<String>>();
-
     for line in lines {
         let entry = parse_line(line?)?;
         if entry.name.to_lowercase() == username {
@@ -99,30 +107,60 @@ fn query_local(username: &str) -> FingerResult<Entry> {
 
 fn parse_line(line: String) -> FingerResult<Entry> {
     let mut user = line.split(':');
-    let name = get_entry(&mut user, "/cat/passwd: Name not found")?;
+    let name = parse_part(&mut user, "/cat/passwd: Name not found")?;
     user.next();
     user.next();
     user.next();
-    user.next();
-    let home = get_entry(&mut user, "/cat/passwd: Home not found")?;
-    let shell = get_entry(&mut user, "/cat/passwd: Shell not found")?;
+    let part = parse_part(&mut user, "gecos not found");
 
-    Ok(Entry { name, home, shell })
+    let gecos = match part {
+        Ok(p) => Some(parse_gecos(p)?),
+        Err(_) => None,
+    };
+
+    let home = parse_part(&mut user, "/cat/passwd: Home not found")?;
+    let shell = parse_part(&mut user, "/cat/passwd: Shell not found")?;
+
+    Ok(Entry {
+        name,
+        gecos,
+        home,
+        shell,
+    })
+}
+
+fn parse_gecos(line: String) -> FingerResult<Gecos> {
+    let mut gecos = line.split(',');
+    let full_name = parse_part(&mut gecos, "Gecos: full name parse failed")?;
+    let location = parse_part(&mut gecos, "Gecos: location parse failed")?;
+    let phone = parse_part(&mut gecos, "Gecos: phone parse failed")?;
+
+    let other = gecos.map(|s| s.to_owned()).collect::<Vec<String>>();
+
+    Ok(Gecos {
+        full_name,
+        location,
+        phone,
+        other,
+    })
 }
 
 // `mut user` works as well as `user: &mut I` here
 // because: impl<'a, T: Iterator> Iterator for &'a mut T
-fn get_entry<'a, I, S>(mut user: I, e: S) -> FingerResult<String>
+fn parse_part<'a, I, S>(mut part: I, e: S) -> FingerResult<String>
 where
     I: Iterator<Item = &'a str>,
     S: Into<String>,
 {
-    Ok(user.next().ok_or(FingerError::parse(e))?.to_owned())
+    Ok(part.next().ok_or(FingerError::parse(e))?.to_owned())
 }
-
 
 fn main() {
     let addr = format!("0.0.0.0:12345").parse().unwrap();
     let server = TcpServer::new(FingerProto, addr);
-    server.serve(|| Ok(FingerService));
+    server.serve(|| {
+        Ok(FingerService {
+            thread_pool: CpuPool::new(4),
+        })
+    });
 }
