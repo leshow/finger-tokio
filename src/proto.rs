@@ -12,21 +12,21 @@ use error::FingerResult;
 
 pub struct FingerCodec;
 
-pub struct FingerFrame {
+pub struct FingerRequest {
     pub username: Option<String>,
     pub hostname: Option<String>,
 }
 
-impl FingerFrame {
-    fn new() -> FingerFrame {
-        FingerFrame {
+impl FingerRequest {
+    fn new() -> FingerRequest {
+        FingerRequest {
             username: None,
             hostname: None,
         }
     }
 }
 
-impl fmt::Display for FingerFrame {
+impl fmt::Display for FingerRequest {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref u) = self.username {
             fmt.write_str(u)?;
@@ -47,7 +47,7 @@ pub trait Finger {
     fn write_to(&self) -> FingerResult<String>;
 }
 
-impl Finger for FingerFrame {
+impl Finger for FingerRequest {
     fn hostname(&self) -> Option<&str> {
         self.hostname.as_ref().map(|x| &**x)
     }
@@ -66,7 +66,7 @@ impl Finger for FingerFrame {
 }
 
 impl Decoder for FingerCodec {
-    type Item = FingerFrame;
+    type Item = FingerRequest;
     type Error = io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -81,19 +81,43 @@ impl Decoder for FingerCodec {
                 .map(|x| x.to_owned())
                 .collect::<Vec<String>>();
             let mut pair = pair.into_iter();
-            let mut frame = FingerFrame::new();
-            frame.set_username(pair.next());
-            frame.set_hostname(pair.next());
+            let mut req = FingerRequest::new();
+            req.set_username(pair.next());
+            req.set_hostname(pair.next());
 
-            Ok(Some(frame))
+            Ok(Some(req))
         } else {
             Ok(None)
         }
     }
 }
 
+pub struct Entry {
+    pub name:  String,
+    pub home:  String,
+    pub shell: String,
+    pub gecos: Option<Gecos>,
+}
+
+pub struct Gecos {
+    pub full_name: String,
+    pub location:  String,
+    pub phone:     String,
+    pub other:     Vec<String>,
+}
+
+pub struct FingerResponse {
+    entry: Option<Entry>,
+}
+
+impl FingerResponse {
+    pub fn new() {
+        FingerResponse { entry: None }
+    }
+}
+
 impl Encoder for FingerCodec {
-    type Item = FingerFrame;
+    type Item = FingerResponse;
     type Error = io::Error;
 
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {

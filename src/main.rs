@@ -13,7 +13,7 @@ pub use error::{FingerError, FingerResult};
 
 use futures::{BoxFuture, Future, future};
 use futures_cpupool::CpuPool;
-pub use proto::{Finger, FingerCodec, FingerFrame, PORT_NUM};
+pub use proto::{Entry, Finger, FingerCodec, FingerRequest, FingerResponse, Gecos, PORT_NUM};
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -29,8 +29,8 @@ impl<T> ServerProto<T> for FingerProto
 where
     T: AsyncRead + AsyncWrite + 'static,
 {
-    type Request = FingerFrame;
-    type Response = FingerFrame; // matches Item type in Decoder
+    type Request = FingerRequest;
+    type Response = FingerResponse; // matches Item type in Decoder
     type Transport = Framed<T, FingerCodec>;
     type BindTransport = Result<Self::Transport, io::Error>;
 
@@ -45,8 +45,8 @@ pub struct FingerService {
 }
 
 impl Service for FingerService {
-    type Request = FingerFrame;
-    type Response = String;
+    type Request = FingerRequest;
+    type Response = FingerResponse;
     type Error = io::Error;
     type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
@@ -83,20 +83,6 @@ impl Service for FingerService {
         query.boxed()
         //        future::ok(req).boxed()
     }
-}
-
-struct Entry {
-    pub name:  String,
-    pub home:  String,
-    pub shell: String,
-    pub gecos: Option<Gecos>,
-}
-
-struct Gecos {
-    pub full_name: String,
-    pub location:  String,
-    pub phone:     String,
-    pub other:     Vec<String>,
 }
 
 fn query_local(username: &str) -> FingerResult<Entry> {
