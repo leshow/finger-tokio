@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::io;
 use std::str;
 use tokio_io::codec::{Decoder, Encoder};
@@ -107,12 +107,46 @@ pub struct Gecos {
 }
 
 pub struct FingerResponse {
-    entry: Option<Entry>,
+    pub entry: Option<Entry>,
 }
 
 impl FingerResponse {
-    pub fn new() {
+    pub fn new() -> FingerResponse {
         FingerResponse { entry: None }
+    }
+}
+
+impl Entry {
+    pub fn write_resp(&self) -> String {
+        let gecos = self.gecos.map_or_else(
+            || "".to_owned(),
+            |gecos| {
+                format!(
+                    "
+            Real Name: {}\r\n
+            Location: {}\r\n
+            Phone: {}\r\n
+            Other: {}\r\n
+        ",
+                    gecos.full_name,
+                    gecos.location,
+                    gecos.phone,
+                    gecos.other.join("\r\n")
+                )
+            },
+        );
+
+        format!(
+            "
+        Login Name: {}\r\n
+        Home: {}\r\n
+        Shell: {} \r\n
+        {}",
+            self.name,
+            self.home,
+            self.shell,
+            gecos
+        )
     }
 }
 
@@ -123,8 +157,11 @@ impl Encoder for FingerCodec {
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
         buf.extend_from_slice(
             input
-                .write_to()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+                .entry
+                .map(|entry| entry.write_resp())
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::Other, "Unable to find user.")
+                })?
                 .as_ref(),
         );
         buf.extend(b"\n");
