@@ -55,7 +55,7 @@ impl Finger for FingerFrame {
         self.username.as_ref().map(|x| &**x)
     }
     fn write_to(&self) -> FingerResult<String> {
-        Ok(format!("{}", self))
+        Ok(format!("{}", self)) // this should be the part that does the query and what-not
     }
     fn set_hostname<S: Into<Option<String>>>(&mut self, hostname: S) {
         self.hostname = hostname.into();

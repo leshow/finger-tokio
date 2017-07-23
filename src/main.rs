@@ -46,11 +46,20 @@ pub struct FingerService {
 
 impl Service for FingerService {
     type Request = FingerFrame;
-    type Response = FingerFrame;
+    type Response = String;
     type Error = io::Error;
     type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
     fn call(&self, req: Self::Request) -> Self::Future {
+
+        // I've gone about this wrong. The <FingerService as Service>::Response
+        // needs to return a String response (user@host filled out in proper format)
+        // I'm not sure if that means the query_local(user) needs to happen in Encoder.encode
+        // or if Encoder should just return some base String, and let the work be done here.
+        // To me, having a bunch of work done in encoder doesn't make much sense because it
+        // can't be run in the thread_pool, Encoder should just do byte manipulation.
+        // But at the same time, the proper Encoded Response for a Finger Request
+        // is the full print-out
         let query = self.thread_pool.spawn_fn(move || {
             let frame = match req.hostname() {
                 Some(host) => {
