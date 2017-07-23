@@ -117,7 +117,7 @@ impl FingerResponse {
 }
 
 impl Entry {
-    pub fn write_resp(&self) -> String {
+    pub fn to_resp(self) -> String {
         let gecos = self.gecos.map_or_else(
             || "".to_owned(),
             |gecos| {
@@ -158,11 +158,11 @@ impl Encoder for FingerCodec {
         buf.extend_from_slice(
             input
                 .entry
-                .map(|entry| entry.write_resp())
+                .map(|entry| entry.to_resp())
                 .ok_or_else(|| {
                     io::Error::new(io::ErrorKind::Other, "Unable to find user.")
                 })?
-                .as_ref(),
+                .as_bytes(),
         );
         buf.extend(b"\n");
         Ok(())

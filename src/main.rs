@@ -64,27 +64,38 @@ impl Service for FingerService {
         // can be built here (having work done in thread_pool), passed to encode for preparation
         // and sent
         let query = self.thread_pool.spawn_fn(move || {
-            let frame = match req.hostname() {
+            let entry = match req.hostname() {
                 Some(host) => {
                     match req.username() {
                         Some(user) => {
                             // host && user
-                            let res = query_local(user)
-                                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
+                            None
                         }
                         None => {
                             // err
+                            None
                         }
                     }
                 }
-                None => {}
+                None => {
+                    match req.username() {
+                        Some(user) => {
+                            Some(query_local(user)
+                                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
+                        }
+                        None => None,
+                    }
+                }
             };
-
-            Ok(req)
+            Ok(entry)
         });
-        query.boxed()
-        //        future::ok(req).boxed()
+        query
+            .map(|entry| {
+                let mut resp = FingerResponse::new();
+                resp.entry = entry;
+                resp
+            })
+            .boxed()
     }
 }
 
