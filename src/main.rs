@@ -64,12 +64,19 @@ impl Service for FingerService {
         // can be built here (having work done in thread_pool), passed to encode for preparation
         // and sent
         let query = self.thread_pool.spawn_fn(move || {
+            println!("{:?}", req);
             let entry = match req.hostname() {
                 Some(host) => {
                     match req.username() {
                         Some(user) => {
                             // host && user
-                            None
+                            if host == "localhost" {
+                                Some(query_local(user)
+                                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
+                            } else {
+                                // no non-local query yet
+                                None
+                            }
                         }
                         None => {
                             // err
@@ -87,6 +94,7 @@ impl Service for FingerService {
                     }
                 }
             };
+            println!("{:?}", entry);
             Ok(entry)
         });
         query
@@ -102,11 +110,14 @@ impl Service for FingerService {
 fn query_local(username: &str) -> FingerResult<Entry> {
     let f = File::open("/etc/passwd")?;
     let reader = BufReader::new(f);
-    let username = username.to_lowercase();
+    let username = username.trim().to_lowercase();
 
+    println!("username {:?}", username);
     let lines = reader.lines();
     for line in lines {
+        println!("line {:?}", line);
         let entry = parse_line(line?)?;
+        println!("entry {:?}", entry);
         if entry.name.to_lowercase() == username {
             return Ok(entry);
         }
@@ -117,18 +128,21 @@ fn query_local(username: &str) -> FingerResult<Entry> {
 fn parse_line(line: String) -> FingerResult<Entry> {
     let mut user = line.split(':');
     let name = parse_part(&mut user, "/cat/passwd: Name not found")?;
+    println!("name {:?}", name);
     user.next();
     user.next();
     user.next();
     let part = parse_part(&mut user, "gecos not found");
-
+    println!("parse gecos {:?}", part);
     let gecos = match part {
         Ok(p) => Some(parse_gecos(p)?),
         Err(_) => None,
     };
 
     let home = parse_part(&mut user, "/cat/passwd: Home not found")?;
+    println!("parse home {:?}", home);
     let shell = parse_part(&mut user, "/cat/passwd: Shell not found")?;
+    println!("parse shell {:?}", shell);
 
     Ok(Entry {
         name,

@@ -12,6 +12,7 @@ use error::FingerResult;
 
 pub struct FingerCodec;
 
+#[derive(Debug)]
 pub struct FingerRequest {
     pub username: Option<String>,
     pub hostname: Option<String>,
@@ -92,6 +93,7 @@ impl Decoder for FingerCodec {
     }
 }
 
+#[derive(Debug)]
 pub struct Entry {
     pub name:  String,
     pub home:  String,
@@ -99,6 +101,7 @@ pub struct Entry {
     pub gecos: Option<Gecos>,
 }
 
+#[derive(Debug)]
 pub struct Gecos {
     pub full_name: String,
     pub location:  String,
@@ -106,6 +109,7 @@ pub struct Gecos {
     pub other:     Vec<String>,
 }
 
+#[derive(Debug)]
 pub struct FingerResponse {
     pub entry: Option<Entry>,
 }
@@ -155,13 +159,14 @@ impl Encoder for FingerCodec {
     type Error = io::Error;
 
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        println!("{:?}", input);
         buf.extend_from_slice(
             input
                 .entry
-                .map(|entry| entry.to_resp())
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::Other, "Unable to find user.")
-                })?
+                .map_or_else(
+                    || "Unable to find user.".to_owned(),
+                    |entry| entry.to_resp(),
+                )
                 .as_bytes(),
         );
         buf.extend(b"\n");
