@@ -39,7 +39,6 @@ where
     }
 }
 
-
 pub struct FingerService {
     thread_pool: CpuPool,
 }
@@ -60,6 +59,10 @@ impl Service for FingerService {
         // can't be run in the thread_pool, Encoder should just do byte manipulation.
         // But at the same time, the proper Encoded Response for a Finger Request
         // is the full print-out
+
+        // OK. Encoder.encode takes Self::Response as an argument, so FingerResponse
+        // can be built here (having work done in thread_pool), passed to encode for preparation
+        // and sent
         let query = self.thread_pool.spawn_fn(move || {
             let frame = match req.hostname() {
                 Some(host) => {
