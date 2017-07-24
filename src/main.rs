@@ -51,49 +51,31 @@ impl Service for FingerService {
 
     fn call(&self, req: Self::Request) -> Self::Future {
 
-        // I've gone about this wrong. The <FingerService as Service>::Response
-        // needs to return a String response (user@host filled out in proper format)
-        // I'm not sure if that means the query_local(user) needs to happen in Encoder.encode
-        // or if Encoder should just return some base String, and let the work be done here.
-        // To me, having a bunch of work done in encoder doesn't make much sense because it
-        // can't be run in the thread_pool, Encoder should just do byte manipulation.
-        // But at the same time, the proper Encoded Response for a Finger Request
-        // is the full print-out
-
-        // OK. Encoder.encode takes Self::Response as an argument, so FingerResponse
-        // can be built here (having work done in thread_pool), passed to encode for preparation
-        // and sent
         let query = self.thread_pool.spawn_fn(move || {
             println!("{:?}", req);
-            let entry = match req.hostname() {
-                Some(host) => {
-                    match req.username() {
-                        Some(user) => {
-                            // host && user
+
+            let entry = match req.username() {
+                Some(user) => {
+                    match req.hostname() {
+                        Some(host) => {
                             if host == "localhost" {
                                 Some(query_local(user)
                                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
                             } else {
-                                // no non-local query yet
+                                // TODO: remote request
                                 None
                             }
                         }
                         None => {
-                            // err
-                            None
-                        }
-                    }
-                }
-                None => {
-                    match req.username() {
-                        Some(user) => {
+                            // local
                             Some(query_local(user)
                                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
                         }
-                        None => None,
                     }
                 }
+                None => None,
             };
+
             Ok(entry)
         });
         query
