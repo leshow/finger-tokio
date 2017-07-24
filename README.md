@@ -1,4 +1,4 @@
-# Finger-tokio (WIP)
+# Finger-tokio (wip: local req only) 
 
 ## Why? 
 
