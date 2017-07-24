@@ -78,6 +78,7 @@ impl Decoder for FingerCodec {
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
             // right now only handles a single user@host
             let pair = input
+                .trim()
                 .split(SEPARATOR)
                 .map(|x| x.to_owned())
                 .collect::<Vec<String>>();
@@ -126,12 +127,7 @@ impl Entry {
             || "".to_owned(),
             |gecos| {
                 format!(
-                    "
-            Real Name: {}\r\n
-            Location: {}\r\n
-            Phone: {}\r\n
-            Other: {}\r\n
-        ",
+                    "Real Name: {}\r\nLocation: {}\r\nPhone: {}\r\nOther: {}\r\n",
                     gecos.full_name,
                     gecos.location,
                     gecos.phone,
@@ -141,11 +137,7 @@ impl Entry {
         );
 
         format!(
-            "
-        Login Name: {}\r\n
-        Home: {}\r\n
-        Shell: {} \r\n
-        {}",
+            "Login Name: {}\r\nHome: {}\r\nShell: {} \r\n{}",
             self.name,
             self.home,
             self.shell,
