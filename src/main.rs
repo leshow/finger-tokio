@@ -10,13 +10,18 @@ mod proto;
 mod error;
 
 pub use error::{FingerError, FingerResult};
-
-use futures::{BoxFuture, Future, future};
-use futures_cpupool::CpuPool;
 pub use proto::{Entry, Finger, FingerCodec, FingerRequest, FingerResponse, Gecos, PORT_NUM};
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
+use std::net::{IpAddr, SocketAddr};
+use std::net::ToSocketAddrs;
+use std::time::Duration;
+
+use futures::{BoxFuture, Future};
+use futures_cpupool::CpuPool;
+use tokio_core::net::TcpStream;
+use tokio_core::reactor::Core;
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::TcpServer;
@@ -41,6 +46,7 @@ where
 
 pub struct FingerService {
     thread_pool: CpuPool,
+    handle: Handle,
 }
 
 impl Service for FingerService {
@@ -86,6 +92,13 @@ impl Service for FingerService {
             })
             .boxed()
     }
+}
+
+fn query_remote(host: &str) -> FingerResult<()> {
+    let ip = host.parse::<IpAddr>()?;
+    let sock = SocketAddr::new(ip, PORT_NUM);
+    TcpStream.connect(addr)
+    Ok(())
 }
 
 fn query_local(username: &str) -> FingerResult<Entry> {
@@ -154,7 +167,9 @@ where
 
 fn main() {
     let addr = format!("0.0.0.0:12345").parse().unwrap();
-    let server = TcpServer::new(FingerProto, addr);
+    let mut core = Core::new().unwrap();
+    let handle = core.handle();
+    let server = TcpServer::new(FingerProto, addr).with_handle(handle);
     server.serve(|| {
         Ok(FingerService {
             thread_pool: CpuPool::new(4),

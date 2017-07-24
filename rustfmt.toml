@@ -1,5 +1,6 @@
 reorder_imports = true
 reorder_imported_names = true
+reorder_imports_in_group = true
 normalize_comments = true
 format_strings = true
 condense_wildcard_suffixes = true
