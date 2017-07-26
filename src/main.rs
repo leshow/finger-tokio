@@ -93,12 +93,18 @@ impl Service for FingerService {
     }
 }
 
-// fn query_remote(host: &str) -> FingerResult<()> {
-//     let ip = host.parse::<IpAddr>()?;
-//     let sock = SocketAddr::new(ip, PORT_NUM);
-//     TcpStream.connect(addr)
-//     Ok(())
-// }
+fn query_remote(r: &FingerRequest, host: &str, remote: &Remote) -> FingerResult<()> {
+    let ip = host.parse::<IpAddr>()?;
+    let addr = SocketAddr::new(ip, PORT_NUM);
+    let to_send = format!("{}", r);
+    remote.spawn(move |handle| {
+        TcpStream::connect(&addr, handle).and_then(|socket| {
+            tokio_core::io::write_all(socket, to_send.as_bytes())
+        });
+        Ok(())
+    });
+    Ok(())
+}
 
 fn query_local(username: &str) -> FingerResult<Entry> {
     let f = File::open("/etc/passwd")?;
