@@ -68,6 +68,11 @@ impl Service for FingerService {
                                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
                             } else {
                                 // TODO: remote request
+                                let s = Some(query_remote(
+                                    format!("{}", req),
+                                    host.to_owned(),
+                                    &self.remote.clone(),
+                                ).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?);
                                 None
                             }
                         }
@@ -83,26 +88,18 @@ impl Service for FingerService {
 
             Ok(entry)
         });
-        query
-            .map(|entry| {
-                let mut resp = FingerResponse::new();
-                resp.entry = entry;
-                resp
-            })
-            .boxed()
+        query.map(|entry| FingerResponse::Local(entry)).boxed()
     }
 }
 
-fn query_remote(r: &FingerRequest, host: &str, remote: &Remote) -> FingerResult<()> {
+fn query_remote(r: String, host: String, remote: &Remote) -> FingerResult<()> {
     let ip = host.parse::<IpAddr>()?;
     let addr = SocketAddr::new(ip, PORT_NUM);
-    let to_send = format!("{}", r);
-    remote.spawn(move |handle| {
-        TcpStream::connect(&addr, handle).and_then(|socket| {
-            tokio_core::io::write_all(socket, to_send.as_bytes())
-        });
-        Ok(())
-    });
+    // remote.spawn(move |handle| {
+    //     TcpStream::connect(&addr, handle)
+    //         .and_then(|socket| tokio_core::io::write_all(socket, r.as_bytes()));
+    //     Ok(())
+    // });
     Ok(())
 }
 

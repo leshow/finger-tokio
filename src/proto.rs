@@ -12,7 +12,7 @@ use error::FingerResult;
 
 pub struct FingerCodec;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FingerRequest {
     pub username: Option<String>,
     pub hostname: Option<String>,
@@ -110,14 +110,25 @@ pub struct Gecos {
     pub other:     Vec<String>,
 }
 
+// #[derive(Debug)]
+// pub struct FingerResponse {
+//     pub entry: Option<Entry>,
+// }
+
 #[derive(Debug)]
-pub struct FingerResponse {
-    pub entry: Option<Entry>,
+pub enum FingerResponse {
+    // a remote response probably doesn't conform to our exact expectations
+    // for Entry, so we can return a String here.
+    Remote(String),
+    Local(Option<Entry>),
 }
 
 impl FingerResponse {
-    pub fn new() -> FingerResponse {
-        FingerResponse { entry: None }
+    pub fn remote(body: String) -> FingerResponse {
+        FingerResponse::Remote(body)
+    }
+    pub fn local() -> FingerResponse {
+        FingerResponse::Local(None)
     }
 }
 
@@ -152,15 +163,16 @@ impl Encoder for FingerCodec {
 
     fn encode(&mut self, input: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
         println!("{:?}", input);
-        buf.extend_from_slice(
-            input
-                .entry
-                .map_or_else(
+        let content = match input {
+            FingerResponse::Remote(s) => s,
+            FingerResponse::Local(opt_entry) => {
+                opt_entry.map_or_else(
                     || "Unable to find user.".to_owned(),
                     |entry| entry.to_resp(),
                 )
-                .as_bytes(),
-        );
+            }
+        };
+        buf.extend_from_slice(content.as_bytes());
         buf.extend(b"\n");
         Ok(())
     }
