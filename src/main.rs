@@ -25,7 +25,7 @@ use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::TcpServer;
 use tokio_proto::pipeline::ServerProto;
-use tokio_service::{NewService, Service};
+use tokio_service::Service;
 
 pub struct FingerProto;
 
@@ -98,7 +98,7 @@ fn query_local(username: &str) -> FingerResult<Entry> {
     Err(FingerError::parse("No user found"))
 }
 
-fn parse_line(line: String) -> FingerResult<Entry> {
+pub fn parse_line(line: String) -> FingerResult<Entry> {
     let mut user = line.split(':');
     let name = parse_part(&mut user, "/cat/passwd: Name not found")?;
     user.next();
@@ -122,7 +122,7 @@ fn parse_line(line: String) -> FingerResult<Entry> {
     })
 }
 
-fn parse_gecos(line: String) -> FingerResult<Gecos> {
+pub fn parse_gecos(line: String) -> FingerResult<Gecos> {
     let mut gecos = line.split(',');
     let full_name = parse_part(&mut gecos, "Gecos: full name parse failed")?;
     let location = parse_part(&mut gecos, "Gecos: location parse failed")?;
@@ -139,7 +139,7 @@ fn parse_gecos(line: String) -> FingerResult<Gecos> {
 
 // `mut user` works as well as `user: &mut I` here
 // because: impl<'a, T: Iterator> Iterator for &'a mut T
-fn parse_part<'a, I, S>(mut part: I, e: S) -> FingerResult<String>
+pub fn parse_part<'a, I, S>(mut part: I, e: S) -> FingerResult<String>
 where
     I: Iterator<Item = &'a str>,
     S: Into<String>,
