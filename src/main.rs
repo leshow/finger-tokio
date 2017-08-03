@@ -45,7 +45,6 @@ where
 
 pub struct FingerService {
     thread_pool: CpuPool,
-    remote:      Remote,
 }
 
 impl Service for FingerService {
@@ -55,10 +54,7 @@ impl Service for FingerService {
     type Future = BoxFuture<Self::Response, Self::Error>; // response future
 
     fn call(&self, req: Self::Request) -> Self::Future {
-
         let query = self.thread_pool.spawn_fn(move || {
-            println!("{:?}", req);
-
             let entry = match req.username() {
                 Some(user) => {
                     match req.hostname() {
@@ -67,12 +63,6 @@ impl Service for FingerService {
                                 Some(query_local(user)
                                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
                             } else {
-                                // TODO: remote request
-                                let s = Some(query_remote(
-                                    format!("{}", req),
-                                    host.to_owned(),
-                                    &self.remote.clone(),
-                                ).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?);
                                 None
                             }
                         }
@@ -92,16 +82,6 @@ impl Service for FingerService {
     }
 }
 
-fn query_remote(r: String, host: String, remote: &Remote) -> FingerResult<()> {
-    let ip = host.parse::<IpAddr>()?;
-    let addr = SocketAddr::new(ip, PORT_NUM);
-    // remote.spawn(move |handle| {
-    //     TcpStream::connect(&addr, handle)
-    //         .and_then(|socket| tokio_core::io::write_all(socket, r.as_bytes()));
-    //     Ok(())
-    // });
-    Ok(())
-}
 
 fn query_local(username: &str) -> FingerResult<Entry> {
     let f = File::open("/etc/passwd")?;
@@ -170,16 +150,22 @@ where
 fn main() {
     let addr = format!("0.0.0.0:12345").parse().unwrap();
     let server = TcpServer::new(FingerProto, addr);
-    let thread_pool = CpuPool::new(4);
+    //    let thread_pool = CpuPool::new(2);
 
-    server.with_handle(move |handle| {
-        let cpupool = thread_pool.clone();
-        let remote = handle.remote().clone();
-        move || {
-            Ok(FingerService {
-                thread_pool: cpupool.clone(),
-                remote:      remote.clone(),
-            })
-        }
+    server.serve(move || {
+        Ok(FingerService {
+            thread_pool: CpuPool::new(2),
+        })
     });
+
+    // server.with_handle(move |handle| {
+    //     let cpupool = thread_pool.clone();
+    //     let remote = handle.remote().clone();
+    //     move || {
+    //         Ok(FingerService {
+    //             thread_pool: cpupool.clone(),
+    //             remote:      remote.clone(),
+    //         })
+    //     }
+    // });
 }
