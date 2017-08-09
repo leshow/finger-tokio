@@ -80,7 +80,7 @@ impl Service for FingerService {
 
             Ok(entry)
         });
-        query.map(|entry| FingerResponse::Local(entry)).boxed()
+        query.map(|entry| FingerResponse::Local(entry)).boxed() // not proxying requests for now, maybe unnecessary for daemon
     }
 }
 
