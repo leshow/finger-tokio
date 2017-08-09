@@ -5,6 +5,7 @@ extern crate tokio_io;
 extern crate tokio_proto;
 extern crate tokio_service;
 extern crate tokio_core;
+extern crate hostname;
 
 mod proto;
 mod error;
@@ -13,14 +14,9 @@ pub use error::{FingerError, FingerResult};
 pub use proto::{Entry, Finger, FingerCodec, FingerRequest, FingerResponse, Gecos, PORT_NUM};
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
-use std::net::{IpAddr, SocketAddr};
-use std::net::ToSocketAddrs;
-use std::time::Duration;
 
 use futures::{BoxFuture, Future};
 use futures_cpupool::CpuPool;
-use tokio_core::net::TcpStream;
-use tokio_core::reactor::{Handle, Remote};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_io::codec::Framed;
 use tokio_proto::TcpServer;
@@ -58,14 +54,20 @@ impl Service for FingerService {
             let entry = match req.username() {
                 Some(user) => {
                     match req.hostname() {
-                        Some(host) => {
-                            if host == "localhost" {
+                        Some(host) => if host == "localhost" {
+                            Some(query_local(user)
+                                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
+                        } else if let Some(ourhost) = hostname::get_hostname() {
+                            // host match
+                            if host == ourhost {
                                 Some(query_local(user)
                                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?)
                             } else {
                                 None
                             }
-                        }
+                        } else {
+                            None
+                        },
                         None => {
                             // local
                             Some(query_local(user)
@@ -150,22 +152,10 @@ where
 fn main() {
     let addr = format!("0.0.0.0:12345").parse().unwrap();
     let server = TcpServer::new(FingerProto, addr);
-    //    let thread_pool = CpuPool::new(2);
 
     server.serve(move || {
         Ok(FingerService {
             thread_pool: CpuPool::new(2),
         })
     });
-
-    // server.with_handle(move |handle| {
-    //     let cpupool = thread_pool.clone();
-    //     let remote = handle.remote().clone();
-    //     move || {
-    //         Ok(FingerService {
-    //             thread_pool: cpupool.clone(),
-    //             remote:      remote.clone(),
-    //         })
-    //     }
-    // });
 }

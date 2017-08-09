@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use std::fmt::{self, Write};
+use std::fmt;
 use std::io;
 use std::str;
 use tokio_io::codec::{Decoder, Encoder};
@@ -165,12 +165,10 @@ impl Encoder for FingerCodec {
         println!("{:?}", input);
         let content = match input {
             FingerResponse::Remote(s) => s,
-            FingerResponse::Local(opt_entry) => {
-                opt_entry.map_or_else(
-                    || "Unable to find user.".to_owned(),
-                    |entry| entry.to_resp(),
-                )
-            }
+            FingerResponse::Local(opt_entry) => opt_entry.map_or_else(
+                || "Unable to find user.".to_owned(),
+                |entry| entry.to_resp(),
+            ),
         };
         buf.extend_from_slice(content.as_bytes());
         buf.extend(b"\n");
